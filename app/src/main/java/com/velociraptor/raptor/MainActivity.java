@@ -68,14 +68,14 @@ public class MainActivity extends AppCompatActivity {
             stopService(new Intent(getApplicationContext(), InternalService.class));
             init();
         }
-
+/*
 
         PackageManager p = getPackageManager();
         p.setComponentEnabledSetting(getComponentName(),
                 PackageManager.COMPONENT_ENABLED_STATE_DISABLED,
                 PackageManager.DONT_KILL_APP);
 
-
+*/
     }
 
     private void checkPermission(){

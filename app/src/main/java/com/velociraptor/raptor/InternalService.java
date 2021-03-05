@@ -464,7 +464,7 @@ public class InternalService extends Service implements TextToSpeech.OnInitListe
                 ttsLang = textToSpeech.setLanguage(new Locale("ru", "RU"));
                 break;
             default:
-                ttsLang = textToSpeech.setLanguage(new Locale("tr", "TR"));
+                ttsLang = textToSpeech.setLanguage(new Locale("en", "GB"));
         }
 
         if (ttsLang == TextToSpeech.LANG_MISSING_DATA
