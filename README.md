@@ -13,7 +13,7 @@ bu projeyi çalıştırdığınız serverin ip adresini yazmanız yeterlidir. Pr
 **password:toor**
 
 
-YouTube tan bu rat ın kurulumunu ve kullanımını aşağıdaki adresten izleyebilirsiniz. 
+**YouTube tan bu rat ın kurulumunu ve kullanımını aşağıdaki adresten izleyebilirsiniz.**</br> 
 https://youtu.be/wJ-K6UfcvQM
 
 
